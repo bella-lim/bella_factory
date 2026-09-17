@@ -4,7 +4,7 @@ import unittest
 
 from scout import storage
 from scout.models import ValidationError
-from scout.pipeline import build_candidate, ingest_batch, analyze_batch
+from scout.pipeline import build_candidate, ingest_batch, analyze_batch, create_batch
 
 
 AGENT_SUBSCORES = {
@@ -26,6 +26,7 @@ def agent_raw(**overrides):
         sources=["https://github.com/example/example-mcp", "https://news.ycombinator.com/item?id=1"],
         stage="EMERGING", hermes_compatible="TEST", korean_gap=True, money_gap=True,
         problem_strength="HIGH", business_models=["Affiliate", "Skill", "Agent Setup Service"],
+        license="MIT", security_notes="로컬 코드 실행 없음, API 키 기반 원격 호출만 필요",
         subscores=AGENT_SUBSCORES,
     )
     raw.update(overrides)
@@ -125,6 +126,46 @@ class AnalyzeBatchTests(unittest.TestCase):
         db = {}
         result = analyze_batch(db, [{"candidate_id": "does-not-exist", "viral_dna": {}}], "2026-09-14")
         self.assertEqual(len(result["errors"]), 1)
+
+
+class CreateBatchTests(unittest.TestCase):
+    def test_create_attaches_content_and_runs_editor(self):
+        db = {}
+        ingest_batch(db, [agent_raw()], "2026-09-13")
+        candidate_id = "agent-economy-example-mcp-server"
+
+        content_items = [{
+            "candidate_id": candidate_id,
+            "content": {"threads": {
+                "info": "1/ 정보형 초안\n\n2/ 두 번째 단락",
+                "experience": "1/ 공감형 초안\n\n2/ 다른 두 번째 단락",
+                "shopping": "1/ 쇼핑형 초안\n\n2/ 또 다른 단락",
+            }},
+        }]
+        result = create_batch(db, content_items, "2026-09-14")
+        self.assertEqual(len(result["created"]), 1)
+        self.assertEqual(len(result["errors"]), 0)
+
+        stored = storage.get(db, candidate_id)
+        self.assertIn("threads", stored.content)
+        self.assertEqual(stored.editor_review["status"], "PREVIEW_READY")
+        self.assertEqual(stored.content_status, "PREVIEW_READY")
+        self.assertEqual(stored.last_checked, "2026-09-14")
+
+    def test_create_missing_candidate_is_reported_as_error(self):
+        db = {}
+        result = create_batch(db, [{"candidate_id": "nope", "content": {}}], "2026-09-14")
+        self.assertEqual(len(result["errors"]), 1)
+
+    def test_create_invalid_content_is_reported_as_error_not_raised(self):
+        db = {}
+        ingest_batch(db, [agent_raw()], "2026-09-13")
+        result = create_batch(db, [{
+            "candidate_id": "agent-economy-example-mcp-server",
+            "content": {"threads": {"info": "only one version"}},
+        }], "2026-09-14")
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertEqual(len(result["created"]), 0)
 
 
 class StorageTests(unittest.TestCase):

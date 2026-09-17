@@ -71,6 +71,21 @@ REVENUE_PATH_KEYS = {
 
 MONETIZABLE_MIN_VIABLE_PATHS = 3  # section 12: "최소 3개의 현실적인 수익화 경로"
 
+# CREATOR AGENT (section 18): required fields per platform output.
+THREADS_VERSIONS = {"info", "experience", "shopping"}  # 정보형 / 경험·공감형 / 쇼핑·문제해결형
+THREADS_MAX_CHARS = 500
+
+NAVER_BLOG_FIELDS = {
+    "titles", "main_keyword", "sub_keywords", "hook", "problem", "situation",
+    "cause", "solution", "selection_criteria", "product_service", "faq", "closing",
+}
+
+YOUTUBE_SHORTS_FIELDS = {
+    "hook", "problem", "discovery_solution", "core", "cta",
+    "titles", "thumbnail_texts", "broll", "subtitles", "video_prompt",
+    "description", "tags",
+}
+
 
 @dataclass
 class Candidate:
@@ -124,6 +139,12 @@ class Candidate:
     # paths + product ladder, sections 12/15). Empty until analyze is run.
     viral_dna: dict = field(default_factory=dict)
     money_analysis: dict = field(default_factory=dict)
+
+    # PHASE 3: CREATOR (Threads/Naver/Shorts drafts, section 18) and FINAL
+    # EDITOR (section 19). Empty until create/review is run. content_status
+    # (above) tracks lifecycle; these hold the actual drafts and the review.
+    content: dict = field(default_factory=dict)
+    editor_review: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)

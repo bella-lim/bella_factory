@@ -127,6 +127,53 @@ def render_money_agent(candidates: list[Candidate]) -> str:
     return "\n".join(lines)
 
 
+def render_creator_output(candidates: list[Candidate]) -> str:
+    """Section 18: CREATOR AGENT drafts -- summaries only (full drafts live
+    in the content JSON / DB, not spammed into the daily report)."""
+    created = [c for c in candidates if c.content]
+    if not created:
+        return ""
+
+    lines = ["## ✍️ CREATOR OUTPUT\n"]
+    for c in created:
+        lines.append(f"### {c.name}\n")
+        platforms = sorted(c.content)
+        lines.append(f"- 초안 플랫폼: {', '.join(platforms)}")
+        threads = c.content.get("threads")
+        if threads:
+            lines.append(f"- Threads 버전: {', '.join(sorted(threads))}")
+        naver = c.content.get("naver_blog")
+        if naver:
+            lines.append(f"- Naver 블로그 제목안: {' / '.join(naver.get('titles', []))}")
+        shorts = c.content.get("youtube_shorts")
+        if shorts:
+            lines.append(f"- Shorts 제목안: {' / '.join(shorts.get('titles', []))}")
+        lines.append(f"- 상태: {c.content_status}\n")
+    return "\n".join(lines)
+
+
+def render_final_editor(candidates: list[Candidate]) -> str:
+    """Section 19: FINAL EDITOR results. A PASS here is a precondition for
+    human preview (section 21), never a publish approval."""
+    reviewed = [c for c in candidates if c.editor_review]
+    if not reviewed:
+        return ""
+
+    lines = ["## ✅ FINAL EDITOR CHECK\n"]
+    for c in reviewed:
+        review = c.editor_review
+        lines.append(f"### {c.name}\n")
+        lines.append(f"- 상태: {review['status']} (이슈 {review['issue_count']}건)")
+        for category, issues in review["findings"].items():
+            if issues:
+                lines.append(f"  - {category}:")
+                for issue in issues:
+                    lines.append(f"    - {issue}")
+        lines.append(f"- {review['note']}")
+        lines.append("- 👀 미리보기 / ✏️ 수정 / ✅ 게시 승인 / 🗑️ 폐기 (명시적 게시 승인 없이는 게시하지 않음)\n")
+    return "\n".join(lines)
+
+
 def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
     header = f"# AI SNS MONEY FACTORY — Daily Report ({date_str})\n"
     sections = [
@@ -135,5 +182,7 @@ def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
         render_agent_money_signal(candidates),
         render_viral_dna(candidates),
         render_money_agent(candidates),
+        render_creator_output(candidates),
+        render_final_editor(candidates),
     ]
     return "\n".join(s for s in sections if s)
