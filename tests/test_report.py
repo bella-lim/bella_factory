@@ -49,6 +49,32 @@ class ReportTests(unittest.TestCase):
         text = render_daily_report("2026-09-13", [c])
         self.assertIn("오늘은 강한 MONEY SIGNAL 없음", text)
 
+    def test_report_omits_growth_sections_when_unmeasured(self):
+        c1 = build_candidate(agent_raw(), "2026-09-13")
+        text = render_daily_report("2026-09-13", [c1])
+        self.assertNotIn("## 📈 GROWTH", text)
+        self.assertNotIn("FEEDBACK LOOP", text)
+
+    def test_report_includes_growth_and_feedback_when_measured(self):
+        c1 = build_candidate(agent_raw(), "2026-09-13")
+        c1 = replace(c1, growth={
+            "24H": {
+                "metrics": {"platform": "threads", "views": 500, "likes": 10, "comments": 1,
+                            "shares": 0, "saves": 0, "clicks": 2, "product_clicks": 0,
+                            "conversions": 0, "revenue": 0, "measured_at": "2026-09-14T00:00:00Z"},
+                "performance": {"ratio": None, "band": "UNKNOWN", "baseline": None, "baseline_sample_size": 0,
+                                "metric_used": "views"},
+                "money_performance": {"content_verdict": "VIRAL UNKNOWN", "money_verdict": "MONEY FAILURE"},
+                "feedback": {"scout_note": "s", "money_note": "m", "creator_note": "c",
+                             "generated_at": "2026-09-14T00:00:00Z"},
+            }
+        })
+        text = render_daily_report("2026-09-13", [c1])
+        self.assertIn("## 📈 GROWTH", text)
+        self.assertIn("FEEDBACK LOOP", text)
+        self.assertIn("MONEY FAILURE", text)
+        self.assertIn("baseline needs", text)  # UNKNOWN ratio explained, not hidden
+
 
 if __name__ == "__main__":
     unittest.main()
