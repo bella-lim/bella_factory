@@ -18,6 +18,8 @@ from scout.scoring import score_and_tier, is_product_opportunity
 from scout import dedup
 from scout.analyst import build_viral_dna
 from scout.money import build_money_analysis
+from scout.creator import build_content
+from scout.editor import run_final_editor
 
 
 def _slugify(text: str) -> str:
@@ -146,3 +148,39 @@ def analyze_batch(db: dict, analysis_items: list[dict], today: str) -> dict:
         analyzed.append(updated_candidate)
 
     return {"analyzed": analyzed, "errors": errors}
+
+
+def create_batch(db: dict, content_items: list[dict], today: str) -> dict:
+    """PHASE 3: attach CREATOR drafts (section 18) to candidates that already
+    exist in the database, then immediately run FINAL EDITOR (section 19)
+    against them. Never creates new candidates, never sets an approval flag
+    -- content_status lands on PREVIEW_READY / NEEDS_REVISION at most;
+    publish approval (section 21) is a human action outside this pipeline.
+    """
+    from scout.storage import get, upsert
+
+    created, errors = [], []
+    for item in content_items:
+        candidate_id = item.get("candidate_id")
+        candidate = get(db, candidate_id) if candidate_id else None
+        if candidate is None:
+            errors.append({"candidate_id": candidate_id, "error": "candidate not found in database"})
+            continue
+
+        try:
+            content = build_content(item.get("content", {}))
+        except ValidationError as e:
+            errors.append({"candidate_id": candidate_id, "error": str(e)})
+            continue
+
+        candidate_with_content = replace(candidate, content=content, last_checked=today)
+        editor_review = run_final_editor(candidate_with_content)
+        final_candidate = replace(
+            candidate_with_content,
+            editor_review=editor_review,
+            content_status=editor_review["status"],
+        )
+        upsert(db, final_candidate)
+        created.append(final_candidate)
+
+    return {"created": created, "errors": errors}

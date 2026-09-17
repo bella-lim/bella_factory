@@ -1,6 +1,8 @@
 """CLI entry point.
 
-    python3 -m scout.cli ingest <candidates.json> [--date YYYY-MM-DD]
+    python3 -m scout.cli ingest  <candidates.json> [--date YYYY-MM-DD]
+    python3 -m scout.cli analyze <analysis.json>    [--date YYYY-MM-DD]
+    python3 -m scout.cli create  <content.json>     [--date YYYY-MM-DD]
     python3 -m scout.cli report  [--date YYYY-MM-DD] [--out path]
     python3 -m scout.cli list    [--track TRACK]
 """
@@ -13,7 +15,7 @@ import os
 import sys
 
 from scout import storage, report
-from scout.pipeline import ingest_batch, analyze_batch
+from scout.pipeline import ingest_batch, analyze_batch, create_batch
 
 
 def _today() -> str:
@@ -54,6 +56,25 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     for c in result["analyzed"]:
         money = c.money_analysis.get("classification", "N/A")
         print(f"  * [{c.track}] {c.name} -> money={money}, ladder={c.money_analysis.get('product_ladder_level')}")
+    if result["errors"]:
+        print(f"Errors: {len(result['errors'])}", file=sys.stderr)
+        for e in result["errors"]:
+            print(f"  ! {e['candidate_id']}: {e['error']}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_create(args: argparse.Namespace) -> int:
+    with open(args.file, "r", encoding="utf-8") as f:
+        content_items = json.load(f)
+
+    db = storage.load_db(args.db)
+    result = create_batch(db, content_items, args.date or _today())
+    storage.save_db(db, args.db)
+
+    print(f"Created content: {len(result['created'])}")
+    for c in result["created"]:
+        print(f"  * [{c.track}] {c.name} -> editor={c.content_status} (issues={c.editor_review['issue_count']})")
     if result["errors"]:
         print(f"Errors: {len(result['errors'])}", file=sys.stderr)
         for e in result["errors"]:
@@ -105,6 +126,11 @@ def main(argv=None) -> int:
     p_analyze.add_argument("file")
     p_analyze.add_argument("--date")
     p_analyze.set_defaults(func=cmd_analyze)
+
+    p_create = sub.add_parser("create")
+    p_create.add_argument("file")
+    p_create.add_argument("--date")
+    p_create.set_defaults(func=cmd_create)
 
     p_report = sub.add_parser("report")
     p_report.add_argument("--date")
