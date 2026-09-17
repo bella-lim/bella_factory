@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 data/candidates.json.tmp
+
+# Telegram bot credentials -- never commit real values, see .env.example
+.env

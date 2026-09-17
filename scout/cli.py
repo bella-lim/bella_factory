@@ -1,10 +1,20 @@
 """CLI entry point.
 
-    python3 -m scout.cli ingest  <candidates.json> [--date YYYY-MM-DD]
-    python3 -m scout.cli analyze <analysis.json>    [--date YYYY-MM-DD]
-    python3 -m scout.cli create  <content.json>     [--date YYYY-MM-DD]
-    python3 -m scout.cli report  [--date YYYY-MM-DD] [--out path]
-    python3 -m scout.cli list    [--track TRACK]
+    python3 -m scout.cli ingest           <candidates.json> [--date YYYY-MM-DD]
+    python3 -m scout.cli analyze          <analysis.json>    [--date YYYY-MM-DD]
+    python3 -m scout.cli create           <content.json>     [--date YYYY-MM-DD]
+    python3 -m scout.cli request-approval <candidate_id>
+    python3 -m scout.cli record-decision  <candidate_id> <preview|revise|approve|discard> [--by NAME] [--notes TEXT]
+    python3 -m scout.cli set-webhook      <public_https_url>
+    python3 -m scout.cli serve-webhook    [--port 8443]
+    python3 -m scout.cli report           [--date YYYY-MM-DD] [--out path]
+    python3 -m scout.cli list             [--track TRACK]
+
+request-approval / set-webhook / serve-webhook need TELEGRAM_BOT_TOKEN (and
+TELEGRAM_CHAT_ID / TELEGRAM_WEBHOOK_SECRET respectively) set in the
+environment -- see .env.example. They reach api.telegram.org, which this
+sandbox's egress policy blocks; run them from an environment with network
+access to Telegram.
 """
 from __future__ import annotations
 
@@ -83,6 +93,64 @@ def cmd_create(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_request_approval(args: argparse.Namespace) -> int:
+    from scout.telegram_bot import require_env, send_approval_request
+
+    db = storage.load_db(args.db)
+    candidate = storage.get(db, args.candidate_id)
+    if candidate is None:
+        print(f"! candidate {args.candidate_id!r} not found", file=sys.stderr)
+        return 1
+
+    try:
+        bot_token = require_env("TELEGRAM_BOT_TOKEN")
+        chat_id = require_env("TELEGRAM_CHAT_ID")
+        updated = send_approval_request(candidate, db, bot_token, chat_id)
+    except Exception as e:  # noqa: BLE001 -- surface any failure (validation, network, HTTP) to the operator
+        print(f"! request-approval failed: {e}", file=sys.stderr)
+        return 1
+
+    storage.save_db(db, args.db)
+    print(f"Approval requested: {updated.name} -> message_id={updated.approval.get('message_id')}")
+    return 0
+
+
+def cmd_record_decision(args: argparse.Namespace) -> int:
+    from scout.telegram_bot import apply_decision
+    from scout.models import ValidationError
+
+    db = storage.load_db(args.db)
+    try:
+        updated = apply_decision(db, args.candidate_id, args.action, args.by, args.notes or "")
+    except ValidationError as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+
+    storage.save_db(db, args.db)
+    print(f"Decision recorded: {updated.name} -> {updated.approval.get('status')} (by {args.by})")
+    return 0
+
+
+def cmd_set_webhook(args: argparse.Namespace) -> int:
+    from scout.telegram_bot import call_telegram_api, require_env
+
+    bot_token = require_env("TELEGRAM_BOT_TOKEN")
+    secret = require_env("TELEGRAM_WEBHOOK_SECRET")
+    from scout.webhook_server import WEBHOOK_PATH
+
+    url = args.public_url.rstrip("/") + WEBHOOK_PATH
+    response = call_telegram_api("setWebhook", {"url": url, "secret_token": secret}, bot_token)
+    print(json.dumps(response, ensure_ascii=False, indent=2))
+    return 0 if response.get("ok") else 1
+
+
+def cmd_serve_webhook(args: argparse.Namespace) -> int:
+    from scout.webhook_server import run_server
+
+    run_server(args.port)
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     date_str = args.date or _today()
     db = storage.load_db(args.db)
@@ -131,6 +199,25 @@ def main(argv=None) -> int:
     p_create.add_argument("file")
     p_create.add_argument("--date")
     p_create.set_defaults(func=cmd_create)
+
+    p_request_approval = sub.add_parser("request-approval")
+    p_request_approval.add_argument("candidate_id")
+    p_request_approval.set_defaults(func=cmd_request_approval)
+
+    p_record_decision = sub.add_parser("record-decision")
+    p_record_decision.add_argument("candidate_id")
+    p_record_decision.add_argument("action", choices=["preview", "revise", "approve", "discard"])
+    p_record_decision.add_argument("--by", default="unknown")
+    p_record_decision.add_argument("--notes")
+    p_record_decision.set_defaults(func=cmd_record_decision)
+
+    p_set_webhook = sub.add_parser("set-webhook")
+    p_set_webhook.add_argument("public_url")
+    p_set_webhook.set_defaults(func=cmd_set_webhook)
+
+    p_serve_webhook = sub.add_parser("serve-webhook")
+    p_serve_webhook.add_argument("--port", type=int, default=8443)
+    p_serve_webhook.set_defaults(func=cmd_serve_webhook)
 
     p_report = sub.add_parser("report")
     p_report.add_argument("--date")

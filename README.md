@@ -1,12 +1,29 @@
-# AI SNS MONEY FACTORY — PHASE 1 + PHASE 2 + PHASE 3
+# AI SNS MONEY FACTORY — PHASE 1 + PHASE 2 + PHASE 3 + PHASE 4
 
 Scope: **SCOUT + AGENT ECONOMY RADAR** (PHASE 1), **ANALYST + MONEY AGENT**
-(PHASE 2), and **CREATOR + FINAL EDITOR** (PHASE 3), per spec v1.1. Not
-implemented yet (by design): Telegram Approval, PUBLISH, GROWTH. Nothing in
-this repo can publish content anywhere — the furthest any candidate gets is
-`PREVIEW_READY`, which is a precondition for a human to look at it, never
-an approval (spec section 21 requires an explicit, separate publish
-approval that this pipeline does not perform).
+(PHASE 2), **CREATOR + FINAL EDITOR** (PHASE 3), and **Telegram Approval**
+(PHASE 4), per spec v1.1. Not implemented yet (by design): PUBLISH, GROWTH.
+Nothing in this repo can publish content anywhere — `approve` records that
+a human tapped "게시 승인" on a real Telegram message, but no code path here
+actually posts to Threads/Naver/YouTube (spec section 21's approval and an
+actual publish action are two different things; only the first exists yet).
+
+## PHASE 4 needs real Telegram credentials, and this sandbox can't use them
+
+`scout/telegram_bot.py` and `scout/webhook_server.py` talk to
+`api.telegram.org`. This development sandbox's egress policy blocks that
+host outright (`curl https://api.telegram.org` → 403 from the proxy, not a
+code bug) — so **no live send or webhook was tested from here**. Everything
+network-touching is split out from the pure logic so the pure parts (message
+formatting, keyboard building, callback parsing, decision application) are
+fully unit-tested without needing network at all; only the thin
+`call_telegram_api` wrapper and the two functions built on it
+(`send_approval_request`, `answer_callback_query` /
+`edit_message_after_decision`) are unverified beyond code review. Run those
+from an environment that can actually reach Telegram (your own machine, a
+server, GitHub Actions) with `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` /
+`TELEGRAM_WEBHOOK_SECRET` set (copy `.env.example` to `.env`, fill in real
+values, never commit `.env`).
 
 ## Why this is split into two halves
 
@@ -72,13 +89,32 @@ scout/
                 that already exist in the database (never creates new
                 ones). create_batch(): attach CREATOR drafts to existing
                 candidates and immediately run FINAL EDITOR against them
+  telegram_bot.py   Telegram Approval (§21). Pure, network-free functions:
+                format_approval_message / build_inline_keyboard /
+                build_send_payload (the 👀 미리보기 / ✏️ 수정 / ✅ 게시 승인 /
+                🗑️ 폐기 buttons), parse_callback_data, record_approval_
+                requested (refuses unless content_status is PREVIEW_READY),
+                and apply_decision -- the only function that can ever set
+                approval.status to APPROVED, and only for a real decision
+                string, never invented. The network-touching functions
+                (call_telegram_api, send_approval_request, answer_
+                callback_query, edit_message_after_decision) are thin
+                wrappers around those pure functions.
+  webhook_server.py A long-running stdlib http.server process (unlike the
+                rest of this CLI) that receives Telegram's callback_query
+                updates, rejects any request without a matching
+                X-Telegram-Bot-Api-Secret-Token header, and otherwise just
+                calls apply_decision() + acks back to Telegram.
   report.py     Renders TOP 3 REPORT (§17), AGENT MONEY SIGNAL (§26), and
                 -- once run -- VIRAL DNA, MONEY AGENT REVENUE PATHS,
-                CREATOR OUTPUT, and FINAL EDITOR CHECK sections
-  cli.py        `python3 -m scout.cli {ingest,analyze,create,report,list}`
-tests/          64 unit tests covering scoring, dedup, validation, storage,
-                ANALYST/MONEY/CREATOR/EDITOR validation, and report
-                rendering
+                CREATOR OUTPUT, FINAL EDITOR CHECK, and TELEGRAM APPROVAL
+                sections
+  cli.py        `python3 -m scout.cli {ingest,analyze,create,
+                request-approval,record-decision,set-webhook,
+                serve-webhook,report,list}`
+tests/          79 unit tests covering scoring, dedup, validation, storage,
+                ANALYST/MONEY/CREATOR/EDITOR/Telegram-approval validation,
+                and report rendering -- all network-free
 data/
   candidates.json         the persistent database (created on first ingest)
   research/YYYY-MM-DD.json  raw research batches (input to `ingest`)
@@ -88,6 +124,7 @@ data/
                             to `create`)
 reports/
   YYYY-MM-DD.md   generated daily reports
+.env.example      required Telegram env var names (no real values)
 ```
 
 ## Running it
@@ -115,9 +152,28 @@ python3 -m scout.cli analyze data/analysis/2026-09-13.json --date 2026-09-13
 #    anything; the furthest a candidate gets is PREVIEW_READY.
 python3 -m scout.cli create data/content/2026-09-13.json --date 2026-09-13
 
-# 5. Generate the daily report from everything seen on that date -- includes
+# 5. (optional, PHASE 4) Once content is PREVIEW_READY, send it to a human
+#    for Telegram Approval. Needs real credentials -- see .env.example --
+#    and network access to api.telegram.org, which this sandbox lacks.
+set -a; source .env; set +a   # TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+python3 -m scout.cli request-approval agent-economy-agent-skills
+
+#    Run a webhook server somewhere reachable by Telegram (needs a public
+#    HTTPS endpoint in front of it -- this process itself speaks plain
+#    HTTP) to apply button-press decisions automatically:
+python3 -m scout.cli set-webhook https://your-public-host.example.com
+python3 -m scout.cli serve-webhook --port 8443
+
+#    Or, without a live server, record a decision manually once you know it
+#    (e.g. the human told you what they tapped): still requires a prior
+#    request-approval call -- you can't approve something never actually
+#    sent for review.
+python3 -m scout.cli record-decision agent-economy-agent-skills approve --by bella
+
+# 6. Generate the daily report from everything seen on that date -- includes
 #    VIRAL DNA / MONEY AGENT REVENUE PATHS / CREATOR OUTPUT / FINAL EDITOR
-#    CHECK sections for anything analyzed / drafted.
+#    CHECK / TELEGRAM APPROVAL sections for anything analyzed / drafted /
+#    requested.
 python3 -m scout.cli report --date 2026-09-13
 
 # Inspect the whole database at any time:
@@ -162,9 +218,18 @@ python3 -m unittest discover -s tests
   real first-person account should replace it once one exists.
 - FINAL EDITOR never sets an `approved` field. `content_status` stops at
   `PREVIEW_READY` / `NEEDS_REVISION` — section 21's explicit human publish
-  approval is a separate step this repo doesn't implement.
+  approval is a separate step, implemented in PHASE 4 as a real Telegram
+  button press, not this pipeline deciding on its own.
+- `telegram_bot.apply_decision` is the **only** function anywhere in this
+  codebase that can set `approval.status = "APPROVED"`, and it only runs in
+  response to an `action` string that came from an actual Telegram
+  `callback_query` (via the webhook) or a human explicitly telling the
+  operator what they tapped (via `record-decision`). `record_approval_
+  requested` refuses to even start the flow unless `content_status ==
+  "PREVIEW_READY"` — you can't request approval on content FINAL EDITOR
+  hasn't passed.
 
-## Known limitations of PHASE 1-3 so far
+## Known limitations of PHASE 1-4 so far
 
 - Only 3 candidates were researched end-to-end (2 Agent Economy, 1 Shopping)
   as a demonstration of the full discover -> verify -> score -> store ->
@@ -187,3 +252,18 @@ python3 -m unittest discover -s tests
   judge whether a claim is actually exaggerated in context, or catch AI
   style beyond the fixed phrase list — those still need a human pass
   before section 21's publish approval.
+- No PHASE 4 Telegram send or webhook call has actually been exercised
+  end-to-end — this sandbox cannot reach `api.telegram.org` (see the
+  section above). The pure logic (message/keyboard building, callback
+  parsing, decision state machine) has 79 passing unit tests; the network
+  glue around it (`call_telegram_api` and everything built on it) has not
+  been run against the real API and should be smoke-tested first in an
+  environment with network access, before relying on it.
+- `webhook_server.py` has no automated tests of its own (it's a thin
+  `BaseHTTPRequestHandler` wrapper around already-tested pure functions,
+  and isn't practical to unit-test without a real socket) — verify it
+  manually (e.g. `curl` a fake Telegram update at it locally) before
+  pointing a real bot's webhook at it.
+- PHASE 4 stops at recording a decision. Nothing here actually posts to
+  Threads, Naver, or YouTube even after `APPROVED` — that's PHASE 5
+  (PUBLISH), still unimplemented.
