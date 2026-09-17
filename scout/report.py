@@ -218,6 +218,64 @@ def render_publish_status(candidates: list[Candidate]) -> str:
     return "\n".join(lines)
 
 
+def render_growth(candidates: list[Candidate]) -> str:
+    """Sections 22-24: GROWTH measurement, performance ratio, and money
+    performance -- content and money verdicts always shown separately,
+    never merged into one number (§24)."""
+    measured = [c for c in candidates if c.growth]
+    if not measured:
+        return ""
+
+    lines = ["## 📈 GROWTH\n"]
+    for c in measured:
+        lines.append(f"### {c.name}\n")
+        for window, entry in c.growth.items():
+            m, p, mp = entry["metrics"], entry["performance"], entry["money_performance"]
+            lines.append(f"**{window}**")
+            lines.append(
+                f"- Views {m['views']} / Likes {m['likes']} / Comments {m['comments']} / "
+                f"Shares {m['shares']} / Saves {m['saves']}"
+            )
+            lines.append(
+                f"- Clicks {m['clicks']} / Product Clicks {m['product_clicks']} / "
+                f"Conversions {m['conversions']} / Revenue {m['revenue']}"
+            )
+            if p["ratio"] is not None:
+                lines.append(
+                    f"- Performance Ratio: {p['ratio']:.2f} ({p['band']}) -- "
+                    f"baseline {p['baseline']:.1f} from {p['baseline_sample_size']} comparable posts"
+                )
+            else:
+                lines.append(
+                    f"- Performance Ratio: UNKNOWN (baseline needs {p['baseline_sample_size']} of "
+                    "at least 3 comparable posts on this platform/window -- not fabricated)"
+                )
+            lines.append(f"- {mp['content_verdict']} / {mp['money_verdict']}")
+            lines.append("")
+    return "\n".join(lines)
+
+
+def render_feedback(candidates: list[Candidate]) -> str:
+    """Section 25: FEEDBACK LOOP -- rule-based notes back to SCOUT / MONEY
+    / CREATOR, derived only from this candidate's own recorded GROWTH
+    verdicts, never invented."""
+    measured = [c for c in candidates if c.growth]
+    if not measured:
+        return ""
+
+    lines = ["## 🔁 FEEDBACK LOOP\n"]
+    for c in measured:
+        lines.append(f"### {c.name}\n")
+        for window, entry in c.growth.items():
+            fb = entry["feedback"]
+            lines.append(f"**{window}**")
+            lines.append(f"- SCOUT: {fb['scout_note']}")
+            lines.append(f"- MONEY: {fb['money_note']}")
+            lines.append(f"- CREATOR: {fb['creator_note']}")
+            lines.append("")
+    return "\n".join(lines)
+
+
 def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
     header = f"# AI SNS MONEY FACTORY — Daily Report ({date_str})\n"
     sections = [
@@ -230,5 +288,7 @@ def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
         render_final_editor(candidates),
         render_approval_status(candidates),
         render_publish_status(candidates),
+        render_growth(candidates),
+        render_feedback(candidates),
     ]
     return "\n".join(s for s in sections if s)

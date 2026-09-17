@@ -113,6 +113,24 @@ ACTION_TO_STATUS = {
 PUBLISH_PLATFORMS = {"threads", "naver_blog", "youtube_shorts"}
 PUBLISH_NOT_SUPPORTED_PLATFORMS = {"naver_blog"}
 
+# GROWTH + FEEDBACK (sections 22-25).
+GROWTH_WINDOWS = ("1H", "6H", "24H", "72H", "7D")
+GROWTH_METRIC_FIELDS = {
+    "views", "likes", "comments", "shares", "saves",
+    "clicks", "product_clicks", "conversions", "revenue",
+}
+# Every metric is a non-negative number or the literal string "UNKNOWN" --
+# never silently defaulted to 0, which would misrepresent "not tracked" as
+# "tracked and zero."
+PERFORMANCE_RATIO_BANDS = (
+    (0.7, "UNDERPERFORM"),
+    (1.5, "NORMAL"),
+    (3.0, "WINNER"),
+    (5.0, "HOT"),
+    (float("inf"), "BREAKOUT"),
+)
+MIN_BASELINE_SAMPLE_SIZE = 3  # never compute a "median" off fewer posts than this
+
 
 @dataclass
 class Candidate:
@@ -159,8 +177,6 @@ class Candidate:
     # lifecycle tracking (sections 21-27; left UNKNOWN/empty until later phases)
     test_status: str = "NOT_TESTED"
     content_status: str = "NONE"
-    performance: str = "UNKNOWN"
-    revenue: str = "UNKNOWN"
 
     # PHASE 2: ANALYST (VIRAL DNA, section 16) and MONEY AGENT (revenue
     # paths + product ladder, sections 12/15). Empty until analyze is run.
@@ -183,6 +199,12 @@ class Candidate:
     # publish.guard_approved() is the single gate every publisher goes
     # through -- see scout/publish.py.
     publish_status: dict = field(default_factory=dict)
+
+    # PHASE 5: GROWTH + FEEDBACK (sections 22-25). Keyed by measurement
+    # window (1H/6H/24H/72H/7D), each entry {metrics, performance,
+    # money_performance, feedback}. growth.guard_published() is the gate --
+    # you can't measure growth on something never actually posted.
+    growth: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -10,6 +10,7 @@
     python3 -m scout.cli publish          <candidate_id> --platform threads --version info
     python3 -m scout.cli publish          <candidate_id> --platform naver_blog
     python3 -m scout.cli publish          <candidate_id> --platform youtube_shorts --video-file <path>
+    python3 -m scout.cli record-metrics   <metrics.json>
     python3 -m scout.cli report           [--date YYYY-MM-DD] [--out path]
     python3 -m scout.cli list             [--track TRACK]
 
@@ -33,7 +34,7 @@ import os
 import sys
 
 from scout import storage, report
-from scout.pipeline import ingest_batch, analyze_batch, create_batch
+from scout.pipeline import ingest_batch, analyze_batch, create_batch, record_growth_batch
 
 
 def _today() -> str:
@@ -199,6 +200,27 @@ def cmd_publish(args: argparse.Namespace) -> int:
     return 0 if result["status"] in ("PUBLISHED", "NOT_SUPPORTED") else 1
 
 
+def cmd_record_metrics(args: argparse.Namespace) -> int:
+    with open(args.file, "r", encoding="utf-8") as f:
+        items = json.load(f)
+
+    db = storage.load_db(args.db)
+    result = record_growth_batch(db, items)
+    storage.save_db(db, args.db)
+
+    print(f"Recorded: {len(result['recorded'])}")
+    for c in result["recorded"]:
+        for window, entry in c.growth.items():
+            perf, money = entry["performance"], entry["money_performance"]
+            print(f"  * [{c.track}] {c.name} @ {window} -> {perf['band']} / {money['money_verdict']}")
+    if result["errors"]:
+        print(f"Errors: {len(result['errors'])}", file=sys.stderr)
+        for e in result["errors"]:
+            print(f"  ! {e['candidate_id']}: {e['error']}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     date_str = args.date or _today()
     db = storage.load_db(args.db)
@@ -273,6 +295,10 @@ def main(argv=None) -> int:
     p_publish.add_argument("--version", choices=["info", "experience", "shopping"])
     p_publish.add_argument("--video-file")
     p_publish.set_defaults(func=cmd_publish)
+
+    p_record_metrics = sub.add_parser("record-metrics")
+    p_record_metrics.add_argument("file")
+    p_record_metrics.set_defaults(func=cmd_record_metrics)
 
     p_report = sub.add_parser("report")
     p_report.add_argument("--date")

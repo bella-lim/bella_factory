@@ -1,13 +1,14 @@
-# AI SNS MONEY FACTORY — PHASE 1 + PHASE 2 + PHASE 3 + PHASE 4 + PHASE 5 (PUBLISH only)
+# AI SNS MONEY FACTORY — PHASE 1 through PHASE 5 (full loop)
 
 Scope: **SCOUT + AGENT ECONOMY RADAR** (PHASE 1), **ANALYST + MONEY AGENT**
 (PHASE 2), **CREATOR + FINAL EDITOR** (PHASE 3), **Telegram Approval**
-(PHASE 4), and **PUBLISH** (part of PHASE 5), per spec v1.1. Not
-implemented yet: GROWTH / FEEDBACK (the other half of PHASE 5). `scout.cli
-publish` is the first thing in this repo that can post something
-externally, and it refuses to run for any candidate whose
-`approval.status != "APPROVED"` — a real human decision recorded in
-PHASE 4, never something this pipeline decides for itself.
+(PHASE 4), and **PUBLISH + GROWTH + FEEDBACK** (PHASE 5), per spec v1.1.
+Every phase in the spec now has code. `scout.cli publish` is the only
+thing in this repo that can post something externally, and it refuses to
+run for any candidate whose `approval.status != "APPROVED"` — a real human
+decision recorded in PHASE 4, never something this pipeline decides for
+itself. `scout.cli record-metrics` (GROWTH) refuses to run for any
+candidate that was never actually `PUBLISHED`.
 
 ## PUBLISH platform capability is honest, not assumed
 
@@ -133,16 +134,31 @@ scout/
                 needs a video file this pipeline never renders),
                 publish_naver_blog (always NOT_SUPPORTED, see above, with
                 the reason recorded rather than a fake success)
+  growth.py     GROWTH + FEEDBACK (§22-25). guard_published() refuses
+                anything never actually PUBLISHED. compute_baseline()
+                takes the median of the account's own comparable posts
+                (same platform + window) and refuses to guess a baseline
+                below MIN_BASELINE_SAMPLE_SIZE=3 data points -- returns
+                ratio=None/band="UNKNOWN" rather than fabricating one from
+                too little history. band_for_ratio() applies the §23
+                thresholds (<0.7 UNDERPERFORM, 0.7-1.5 NORMAL, 1.5-3
+                WINNER, 3-5 HOT, 5+ BREAKOUT). compute_money_performance()
+                keeps content and money verdicts on separate axes (§24) --
+                judged purely on conversions, never blended with views.
+                generate_feedback() is a fixed lookup table over
+                (content tier, money verdict) -> rule-based notes for
+                SCOUT/MONEY/CREATOR, not generated text.
   report.py     Renders TOP 3 REPORT (§17), AGENT MONEY SIGNAL (§26), and
                 -- once run -- VIRAL DNA, MONEY AGENT REVENUE PATHS,
-                CREATOR OUTPUT, FINAL EDITOR CHECK, TELEGRAM APPROVAL, and
-                PUBLISH STATUS sections
+                CREATOR OUTPUT, FINAL EDITOR CHECK, TELEGRAM APPROVAL,
+                PUBLISH STATUS, GROWTH, and FEEDBACK LOOP sections
   cli.py        `python3 -m scout.cli {ingest,analyze,create,
                 request-approval,record-decision,set-webhook,
-                serve-webhook,publish,report,list}`
-tests/          91 unit tests covering scoring, dedup, validation, storage,
-                ANALYST/MONEY/CREATOR/EDITOR/Telegram-approval/publish
-                validation, and report rendering -- all network-free
+                serve-webhook,publish,record-metrics,report,list}`
+tests/          117 unit tests covering scoring, dedup, validation,
+                storage, ANALYST/MONEY/CREATOR/EDITOR/Telegram-approval/
+                publish/growth validation, and report rendering -- all
+                network-free
 data/
   candidates.json         the persistent database (created on first ingest)
   research/YYYY-MM-DD.json  raw research batches (input to `ingest`)
@@ -206,10 +222,22 @@ python3 -m scout.cli publish agent-economy-agent-skills --platform threads --ver
 python3 -m scout.cli publish agent-economy-agent-skills --platform naver_blog        # always NOT_SUPPORTED
 python3 -m scout.cli publish agent-economy-agent-skills --platform youtube_shorts --video-file ./short.mp4
 
-# 7. Generate the daily report from everything seen on that date -- includes
+# 7. (optional, PHASE 5 GROWTH) Once a platform actually shows PUBLISHED,
+#    record measurements at fixed windows (1H/6H/24H/72H/7D) and this
+#    immediately computes the performance ratio against the account's own
+#    history, a separate content/money verdict, and rule-based feedback.
+#    Refuses to run for anything never actually PUBLISHED. A batch JSON
+#    file, same shape as ingest/analyze/create:
+#    [{"candidate_id": "...", "window": "24H",
+#      "metrics": {"platform": "threads", "views": 500, "likes": 10, ...
+#                  "conversions": 0}}]
+python3 -m scout.cli record-metrics data/growth/2026-09-13.json
+
+# 8. Generate the daily report from everything seen on that date -- includes
 #    VIRAL DNA / MONEY AGENT REVENUE PATHS / CREATOR OUTPUT / FINAL EDITOR
-#    CHECK / TELEGRAM APPROVAL / PUBLISH STATUS sections for anything
-#    analyzed / drafted / requested / published.
+#    CHECK / TELEGRAM APPROVAL / PUBLISH STATUS / GROWTH / FEEDBACK LOOP
+#    sections for anything analyzed / drafted / requested / published /
+#    measured.
 python3 -m scout.cli report --date 2026-09-13
 
 # Inspect the whole database at any time:
@@ -271,8 +299,24 @@ python3 -m unittest discover -s tests
   "Known limitations" below).
 - `publish_naver_blog` never returns `PUBLISHED` — there is no code path
   that fakes a post id or URL for a platform with no real write API.
+- `growth.guard_published` refuses to run for any candidate with no
+  `PUBLISHED` entry in `publish_status` — verified live (`scout.cli
+  record-metrics` against the unpublished Agent Skills candidate fails
+  immediately with "no PUBLISHED platform").
+- `growth.compute_baseline` returns `baseline=None` (and the report prints
+  "baseline needs N of at least 3 comparable posts... not fabricated")
+  below `MIN_BASELINE_SAMPLE_SIZE = 3` — there is no fallback that invents
+  a baseline from 1 or 2 data points, or from a different platform/window.
+- `growth.compute_money_performance` never looks at `views`/`likes` to
+  decide the money verdict, only `conversions` — section 24's whole point
+  (a viral winner can be a money failure) would break if the two were
+  blended.
+- `growth.generate_feedback` is a fixed dict lookup over all 9 (content
+  tier × money verdict) combinations, not generated prose — every
+  combination is covered (tested), so it can't silently fall through with
+  no advice.
 
-## Known limitations of PHASE 1-5 (PUBLISH) so far
+## Known limitations of PHASE 1-5 so far
 
 - Only 3 candidates were researched end-to-end (2 Agent Economy, 1 Shopping)
   as a demonstration of the full discover -> verify -> score -> store ->
@@ -317,10 +361,23 @@ python3 -m unittest discover -s tests
   tests, all network-free) — smoke-test the two real integrations from an
   environment with network access and real credentials before relying on
   them.
-- GROWTH / FEEDBACK (the rest of PHASE 5, spec sections 22-25) — tracking
-  post performance after publish and feeding it back into SCOUT/MONEY/
-  CREATOR — is not implemented.
-- No candidate has actually been through the full loop (approve → publish)
-  in this session, on top of not being network-testable here: Mireye and
-  the Agent Skills candidate are `PREVIEW_READY`/analyzed but neither has
-  been approved or published.
+- No candidate has actually been through the full loop (approve → publish
+  → measure) in this session: Mireye and the Agent Skills candidate are
+  `PREVIEW_READY`/analyzed but neither has been approved, published, or
+  measured. GROWTH was deliberately **not** demonstrated with fake numbers
+  for them — that would mean literally fabricating view/click/conversion
+  counts for posts that don't exist, which is exactly what this whole
+  project has avoided at every phase. `tests/test_growth.py` demonstrates
+  the logic with clearly-synthetic test fixtures instead (the normal,
+  correct place for made-up numbers).
+- `growth.compute_money_performance`'s money verdict is intentionally
+  simple (conversions > 0 → WINNER, conversions == 0 → FAILURE,
+  conversions untracked → UNKNOWN) to match the spec's own examples
+  exactly (§24). It doesn't yet weigh revenue amount, click-through rate,
+  or platform-specific nuance — a production version might want a richer
+  rule once real conversion data exists to calibrate against.
+- `growth.generate_feedback`'s notes are fixed Korean strings per
+  (tier, verdict) combination, not tailored to the specific candidate or
+  content (e.g. it won't reference the actual CTA text that underperformed)
+  — CREATOR would need real drafts alongside the feedback to act on it,
+  the same way a human editor would re-open `data/content/*.json`.

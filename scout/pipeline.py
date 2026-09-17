@@ -20,6 +20,11 @@ from scout.analyst import build_viral_dna
 from scout.money import build_money_analysis
 from scout.creator import build_content
 from scout.editor import run_final_editor
+from scout.models import GROWTH_WINDOWS
+from scout.growth import (
+    build_metrics_record, compute_money_performance, compute_performance,
+    generate_feedback, guard_published,
+)
 
 
 def _slugify(text: str) -> str:
@@ -184,3 +189,52 @@ def create_batch(db: dict, content_items: list[dict], today: str) -> dict:
         created.append(final_candidate)
 
     return {"created": created, "errors": errors}
+
+
+def record_growth_batch(db: dict, items: list[dict]) -> dict:
+    """GROWTH + FEEDBACK (sections 22-25): record a metrics measurement,
+    then immediately compute performance ratio, money performance, and
+    feedback -- same "record then evaluate in one step" shape as
+    create_batch(). Refuses any candidate never actually PUBLISHED.
+    """
+    from scout.storage import get, upsert
+
+    recorded, errors = [], []
+    for item in items:
+        candidate_id = item.get("candidate_id")
+        candidate = get(db, candidate_id) if candidate_id else None
+        if candidate is None:
+            errors.append({"candidate_id": candidate_id, "error": "candidate not found in database"})
+            continue
+
+        try:
+            guard_published(candidate)
+        except ValidationError as e:
+            errors.append({"candidate_id": candidate_id, "error": str(e)})
+            continue
+
+        window = item.get("window")
+        if window not in GROWTH_WINDOWS:
+            errors.append({"candidate_id": candidate_id, "error": f"window must be one of {GROWTH_WINDOWS}, got {window!r}"})
+            continue
+
+        try:
+            metrics = build_metrics_record(item.get("metrics", {}))
+        except ValidationError as e:
+            errors.append({"candidate_id": candidate_id, "error": str(e)})
+            continue
+
+        performance = compute_performance(db, candidate, window, metrics)
+        money_performance = compute_money_performance(metrics, performance)
+        feedback = generate_feedback(performance, money_performance)
+
+        growth = dict(candidate.growth)
+        growth[window] = {
+            "metrics": metrics, "performance": performance,
+            "money_performance": money_performance, "feedback": feedback,
+        }
+        updated = replace(candidate, growth=growth)
+        upsert(db, updated)
+        recorded.append(updated)
+
+    return {"recorded": recorded, "errors": errors}
