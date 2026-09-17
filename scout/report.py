@@ -174,6 +174,30 @@ def render_final_editor(candidates: list[Candidate]) -> str:
     return "\n".join(lines)
 
 
+def render_approval_status(candidates: list[Candidate]) -> str:
+    """Section 21: Telegram Approval status. Never rendered as if this
+    pipeline itself approved anything -- APPROVED only appears here because
+    a real human decision was recorded via apply_decision()."""
+    requested = [c for c in candidates if c.approval]
+    if not requested:
+        return ""
+
+    lines = ["## 📲 TELEGRAM APPROVAL\n"]
+    for c in requested:
+        a = c.approval
+        lines.append(f"### {c.name}\n")
+        lines.append(f"- 상태: {a['status']}")
+        lines.append(f"- 요청 시각: {a.get('requested_at', 'UNKNOWN')}")
+        if a.get("decided_at"):
+            lines.append(f"- 결정 시각: {a['decided_at']} (by {a.get('decided_by', 'UNKNOWN')})")
+        if a.get("notes"):
+            lines.append(f"- 메모: {a['notes']}")
+        if a["status"] == "APPROVED":
+            lines.append("- 게시 승인은 기록되었으나, 이 시스템은 실제 게시를 수행하지 않음 (PHASE 5 PUBLISH 미구현)")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
     header = f"# AI SNS MONEY FACTORY — Daily Report ({date_str})\n"
     sections = [
@@ -184,5 +208,6 @@ def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
         render_money_agent(candidates),
         render_creator_output(candidates),
         render_final_editor(candidates),
+        render_approval_status(candidates),
     ]
     return "\n".join(s for s in sections if s)

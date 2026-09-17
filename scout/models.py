@@ -86,6 +86,18 @@ YOUTUBE_SHORTS_FIELDS = {
     "description", "tags",
 }
 
+# Telegram Approval (section 21): the only 4 buttons that exist, and the
+# only 4 decision outcomes this pipeline understands. "APPROVED" is the
+# single publish-approval state -- nothing downstream may set it except a
+# real decision recorded through this action set.
+APPROVAL_ACTIONS = {"preview", "revise", "approve", "discard"}
+ACTION_TO_STATUS = {
+    "preview": "PENDING",
+    "revise": "NEEDS_REVISION",
+    "approve": "APPROVED",
+    "discard": "REJECTED",
+}
+
 
 @dataclass
 class Candidate:
@@ -145,6 +157,11 @@ class Candidate:
     # (above) tracks lifecycle; these hold the actual drafts and the review.
     content: dict = field(default_factory=dict)
     editor_review: dict = field(default_factory=dict)
+
+    # PHASE 4: Telegram Approval (section 21). Publish approval is always a
+    # human action taken on a real Telegram message -- nothing in this
+    # codebase can set status to APPROVED on its own.
+    approval: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
