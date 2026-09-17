@@ -192,8 +192,28 @@ def render_approval_status(candidates: list[Candidate]) -> str:
             lines.append(f"- 결정 시각: {a['decided_at']} (by {a.get('decided_by', 'UNKNOWN')})")
         if a.get("notes"):
             lines.append(f"- 메모: {a['notes']}")
-        if a["status"] == "APPROVED":
-            lines.append("- 게시 승인은 기록되었으나, 이 시스템은 실제 게시를 수행하지 않음 (PHASE 5 PUBLISH 미구현)")
+        if a["status"] == "APPROVED" and not c.publish_status:
+            lines.append("- 게시 승인 기록됨, 아직 `scout.cli publish`로 게시되지 않음")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_publish_status(candidates: list[Candidate]) -> str:
+    """Section 22+: PUBLISH results. publish.guard_approved() means nothing
+    here could have been posted without a prior APPROVED decision."""
+    published = [c for c in candidates if c.publish_status]
+    if not published:
+        return ""
+
+    lines = ["## 🚀 PUBLISH STATUS\n"]
+    for c in published:
+        lines.append(f"### {c.name}\n")
+        for platform, result in c.publish_status.items():
+            lines.append(f"- {platform}: {result['status']}")
+            if result.get("url"):
+                lines.append(f"  - URL: {result['url']}")
+            if result.get("error"):
+                lines.append(f"  - {result['error']}")
         lines.append("")
     return "\n".join(lines)
 
@@ -209,5 +229,6 @@ def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
         render_creator_output(candidates),
         render_final_editor(candidates),
         render_approval_status(candidates),
+        render_publish_status(candidates),
     ]
     return "\n".join(s for s in sections if s)

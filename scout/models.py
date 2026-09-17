@@ -98,6 +98,21 @@ ACTION_TO_STATUS = {
     "discard": "REJECTED",
 }
 
+# PUBLISH (section 22 onward). Only platforms with a content draft (§18)
+# can be published; capability is honest per-platform, not assumed:
+#   threads         real API (Meta Graph, graph.threads.net), implemented
+#   youtube_shorts  real API (YouTube Data API v3), implemented, but needs
+#                   an actual rendered video file this pipeline never
+#                   produces -- CREATOR only writes a video_prompt, not a
+#                   video. Publish requires the file path to be supplied.
+#   naver_blog      No current, reliable, officially-supported public API
+#                   for a third party to create a post on an arbitrary
+#                   personal Naver Blog (the only documented mechanism is
+#                   a MetaWeblog/XML-RPC integration from ~2010 with no
+#                   confirmed 2026 support). Never fabricated as "working."
+PUBLISH_PLATFORMS = {"threads", "naver_blog", "youtube_shorts"}
+PUBLISH_NOT_SUPPORTED_PLATFORMS = {"naver_blog"}
+
 
 @dataclass
 class Candidate:
@@ -162,6 +177,12 @@ class Candidate:
     # human action taken on a real Telegram message -- nothing in this
     # codebase can set status to APPROVED on its own.
     approval: dict = field(default_factory=dict)
+
+    # PHASE 5: PUBLISH. Keyed by platform ("threads" / "naver_blog" /
+    # "youtube_shorts"), each entry {status, post_id, url, error, published_at}.
+    # publish.guard_approved() is the single gate every publisher goes
+    # through -- see scout/publish.py.
+    publish_status: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
