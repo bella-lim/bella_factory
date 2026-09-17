@@ -13,7 +13,7 @@ import os
 import sys
 
 from scout import storage, report
-from scout.pipeline import ingest_batch
+from scout.pipeline import ingest_batch, analyze_batch
 
 
 def _today() -> str:
@@ -38,6 +38,26 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         print(f"Errors: {len(result['errors'])}", file=sys.stderr)
         for e in result["errors"]:
             print(f"  ! {e['name']}: {e['error']}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_analyze(args: argparse.Namespace) -> int:
+    with open(args.file, "r", encoding="utf-8") as f:
+        analysis_items = json.load(f)
+
+    db = storage.load_db(args.db)
+    result = analyze_batch(db, analysis_items, args.date or _today())
+    storage.save_db(db, args.db)
+
+    print(f"Analyzed: {len(result['analyzed'])}")
+    for c in result["analyzed"]:
+        money = c.money_analysis.get("classification", "N/A")
+        print(f"  * [{c.track}] {c.name} -> money={money}, ladder={c.money_analysis.get('product_ladder_level')}")
+    if result["errors"]:
+        print(f"Errors: {len(result['errors'])}", file=sys.stderr)
+        for e in result["errors"]:
+            print(f"  ! {e['candidate_id']}: {e['error']}", file=sys.stderr)
         return 1
     return 0
 
@@ -80,6 +100,11 @@ def main(argv=None) -> int:
     p_ingest.add_argument("file")
     p_ingest.add_argument("--date")
     p_ingest.set_defaults(func=cmd_ingest)
+
+    p_analyze = sub.add_parser("analyze")
+    p_analyze.add_argument("file")
+    p_analyze.add_argument("--date")
+    p_analyze.set_defaults(func=cmd_analyze)
 
     p_report = sub.add_parser("report")
     p_report.add_argument("--date")

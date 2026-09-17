@@ -4,7 +4,7 @@ import unittest
 
 from scout import storage
 from scout.models import ValidationError
-from scout.pipeline import build_candidate, ingest_batch
+from scout.pipeline import build_candidate, ingest_batch, analyze_batch
 
 
 AGENT_SUBSCORES = {
@@ -88,6 +88,43 @@ class IngestBatchTests(unittest.TestCase):
         result = ingest_batch(db, [agent_raw(url="bad")], "2026-09-13")
         self.assertEqual(len(result["errors"]), 1)
         self.assertEqual(len(db), 0)
+
+
+class AnalyzeBatchTests(unittest.TestCase):
+    def test_analyze_attaches_viral_dna_and_money_to_existing_candidate(self):
+        db = {}
+        ingest_batch(db, [agent_raw()], "2026-09-13")
+        candidate_id = "agent-economy-example-mcp-server"
+
+        analysis = [{
+            "candidate_id": candidate_id,
+            "viral_dna": {
+                "topic": "MCP 서버 수익화",
+                "hook_principle": "정보 격차 자체가 후크",
+                "emotion": "조바심", "problem": "가이드 없음", "desire": "선점하고 싶다",
+                "format": "정보성", "structure": "통념->반박->기준->대상->예외",
+                "comment_trigger": "경험 공유 유도", "shopping_signal": "없음",
+                "replicability": 70,
+            },
+            "money_paths": {
+                "content_revenue": {"viable": True, "why": "정보 격차 콘텐츠 자체 수요"},
+                "affiliate": {"viable": True, "why": "관련 툴 제휴 가능"},
+                "consulting": {"viable": True, "why": "기업 대상 대행 수요"},
+            },
+        }]
+        result = analyze_batch(db, analysis, "2026-09-14")
+        self.assertEqual(len(result["analyzed"]), 1)
+        self.assertEqual(len(result["errors"]), 0)
+
+        stored = storage.get(db, candidate_id)
+        self.assertEqual(stored.viral_dna["topic"], "MCP 서버 수익화")
+        self.assertEqual(stored.money_analysis["classification"], "MONETIZABLE")
+        self.assertEqual(stored.last_checked, "2026-09-14")
+
+    def test_analyze_missing_candidate_is_reported_as_error(self):
+        db = {}
+        result = analyze_batch(db, [{"candidate_id": "does-not-exist", "viral_dna": {}}], "2026-09-14")
+        self.assertEqual(len(result["errors"]), 1)
 
 
 class StorageTests(unittest.TestCase):

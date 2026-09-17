@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from scout.models import Candidate
+from scout.money import LEVEL_NAMES
 
 MEDALS = ["🥇", "🥈", "🥉"]
 
@@ -57,6 +58,7 @@ def render_agent_money_signal(candidates: list[Candidate]) -> str:
             watch = sorted(pool, key=lambda c: c.score_total, reverse=True)[:3]
             for c in watch:
                 lines.append(f"- {c.name} ({c.category}) — Agent Money Score {c.score_total} ({c.score_tier}) — {c.sources[0] if c.sources else 'UNKNOWN'}")
+            lines.append("")
         return "\n".join(lines)
 
     for c in strong:
@@ -78,6 +80,60 @@ def render_agent_money_signal(candidates: list[Candidate]) -> str:
     return "\n".join(lines)
 
 
+def render_viral_dna(candidates: list[Candidate]) -> str:
+    """Section 16: ANALYST AGENT output -- principles only, never copied text."""
+    analyzed = [c for c in candidates if c.viral_dna]
+    if not analyzed:
+        return ""
+
+    lines = ["## 🧬 VIRAL DNA\n"]
+    for c in analyzed:
+        dna = c.viral_dna
+        lines.append(f"### {c.name}\n")
+        lines.append(f"- Topic: {dna['topic']}")
+        lines.append(f"- Hook 원리: {dna['hook_principle']}")
+        if dna.get("source_note"):
+            lines.append(f"  (근거: {dna['source_note']})")
+        lines.append(f"- Emotion: {dna['emotion']}")
+        lines.append(f"- Problem: {dna['problem']}")
+        lines.append(f"- Desire: {dna['desire']}")
+        lines.append(f"- Format: {dna['format']}")
+        lines.append(f"- Structure: {dna['structure']}")
+        lines.append(f"- Comment Trigger: {dna['comment_trigger']}")
+        lines.append(f"- Shopping Signal: {dna['shopping_signal']}")
+        lines.append(f"- Replicability: {dna['replicability']}/100\n")
+    return "\n".join(lines)
+
+
+def render_money_agent(candidates: list[Candidate]) -> str:
+    """Sections 12-15: MONEY AGENT revenue paths + product ladder."""
+    analyzed = [c for c in candidates if c.money_analysis]
+    if not analyzed:
+        return ""
+
+    lines = ["## 💵 MONEY AGENT REVENUE PATHS\n"]
+    for c in analyzed:
+        m = c.money_analysis
+        lines.append(f"### {c.name}\n")
+        lines.append(f"- 분류: {m['classification']} (검증된 경로 {m['viable_count']}개)")
+        viable = m.get("viable_paths") or []
+        lines.append(f"- 유효 경로: {', '.join(viable) if viable else '없음'}")
+        for key, entry in m.get("revenue_paths", {}).items():
+            if entry.get("viable") is True:
+                lines.append(f"  - {key}: {entry.get('why', '')}")
+        if m.get("product_ladder_level"):
+            lines.append(f"- PRODUCT OPPORTUNITY 단계: {LEVEL_NAMES.get(m['product_ladder_level'], m['product_ladder_level'])}")
+        lines.append(f"- 🎯 NEXT ACTION: {m['next_action']}\n")
+    return "\n".join(lines)
+
+
 def render_daily_report(date_str: str, candidates: list[Candidate]) -> str:
     header = f"# AI SNS MONEY FACTORY — Daily Report ({date_str})\n"
-    return "\n".join([header, render_top3(candidates), render_agent_money_signal(candidates)])
+    sections = [
+        header,
+        render_top3(candidates),
+        render_agent_money_signal(candidates),
+        render_viral_dna(candidates),
+        render_money_agent(candidates),
+    ]
+    return "\n".join(s for s in sections if s)
