@@ -1,0 +1,64 @@
+[
+  {
+    "candidate_id": "agent-economy-mireye",
+    "viral_dna": {
+      "topic": "AI 에이전트가 미국 부동산/상권 데이터를 API 한 번으로 가져다 쓰는 인프라",
+      "hook_principle": "몇 주 걸리던 리서치를 에이전트가 API 호출 한 번으로 끝낸다는 시간 압축 프레임이 가장 강하게 작동한다",
+      "source_note": "PHASE1 리서치(HN 런칭글, YC 공식 페이지)에서 확인한 '2인 팀, 10일 만에 정식 런칭' 시간축과 threads-viral-writer 스킬에서 검증된 시간압축형 후크 패턴을 결합해 원리만 추출함 (문장 그대로 복사 없음)",
+      "emotion": "복잡한 리서치 업무에서 해방되고 싶은 조바심",
+      "problem": "AI 에이전트가 부지 스크리닝, 리드 검증 같은 실제 업무를 자동화하려 해도 신뢰할 수 있는 물리적 세계 데이터가 없다",
+      "desire": "직접 검색·전화·공문 없이 에이전트가 알아서 리서치를 끝내주길 바란다",
+      "format": "노하우형 (무료 크레딧으로 직접 테스트한 결과를 보여주는 절차형 콘텐츠)",
+      "structure": "결론 -> 실패조건(미국 주소 한정이라는 제약) -> 절차(크레딧 발급/API 호출) -> 검증방법(실제 응답 캡처) -> 적용범위",
+      "comment_trigger": "해외 진출/리서치 업무에서 겪은 삽질 경험을 공유하고 싶게 만드는 질문",
+      "shopping_signal": "무료 크레딧 5,000건이라는 진입장벽 낮은 가입 유도형 CTA 존재",
+      "replicability": 55
+    },
+    "money_paths": {
+      "content_revenue": {"viable": true, "why": "미국 부동산 데이터 API를 국내 최초로 다루는 콘텐츠 자체가 확인된 Korean Gap 덕에 조회수를 만들 수 있음"},
+      "affiliate": {"viable": "UNKNOWN", "why": ""},
+      "recurring_affiliate": {"viable": "UNKNOWN", "why": ""},
+      "skill": {"viable": true, "why": "Mireye MCP를 Hermes에 연동하는 스킬로 패키징 가능 (단, SKILL SAFETY GATE 통과 전이라 TEST 단계)"},
+      "template": {"viable": false, "why": "API 래퍼 수준이라 스킬 하나로 충분, 별도 템플릿 상품화 가치는 낮음"},
+      "digital_product": {"viable": false, "why": "서드파티 API 위에 얹은 것이라 독립 디지털 상품으로 팔기 어려움"},
+      "smartstore": {"viable": false, "why": "물리 상품이 아니라 스마트스토어와 무관"},
+      "guide_ebook": {"viable": true, "why": "미국 진출/부동산 투자 실무자 대상 'Mireye로 미국 부지 조사하는 법' 가이드는 수요가 명확한 니치 소재"},
+      "consulting": {"viable": true, "why": "한국 기업의 미국 진출 리서치 대행은 실존하는 B2B 서비스 영역"},
+      "agent_setup_service": {"viable": true, "why": "Mireye+Hermes 연동 자동 리포트 에이전트를 기업에 구축해주는 서비스 가능"},
+      "lead_generation": {"viable": "UNKNOWN", "why": ""},
+      "micro_saas": {"viable": false, "why": "Mireye 자체가 이미 API 서비스라 그 위에 SaaS를 얹을 만큼 검증된 반복 수요가 아직 없음 (WATCH 단계)"},
+      "data_business": {"viable": false, "why": "데이터 재판매는 Mireye ToS 위반 소지가 있어 검증 전엔 권장 안 함"}
+    }
+  },
+  {
+    "candidate_id": "agent-economy-agent-skills",
+    "viral_dna": {
+      "topic": "클로드 Agent Skills를 만들어 파는 것으로 부수입 만들기",
+      "hook_principle": "생태계는 이미 커졌는데 그걸 돈으로 바꾸는 법을 알려주는 한국어 콘텐츠는 없다는 정보 격차 자체가 후크로 작동한다",
+      "source_note": "인접 사례(MCP 서버 수익화 Threads 글, threads.com/@working.ref)와 이 프로젝트에서 threads-viral-writer 스킬로 2026-09-14 실제 작성한 초안을 근거로 함",
+      "emotion": "이미 다 아는 얘기인데 나만 몰랐던 것 같은 조바심",
+      "problem": "스킬 사용법을 다룬 한국어 콘텐츠는 많지만 수익화 방법을 다룬 콘텐츠는 없다",
+      "desire": "여러 플랫폼(Claude/Codex/Cursor)에 재사용되는 자산 하나로 여러 번 수익화하고 싶다",
+      "format": "정보성 (노하우형은 검증된 제작 절차가 없어 위험하다고 소재 진단에서 이미 판정됨)",
+      "structure": "통념 -> 반박근거 -> 실제기준 -> 적용대상 -> 예외",
+      "comment_trigger": "본인이 스킬로 만들 만한 반복 업무를 묻는 질문이 실행 의도를 끌어낸다",
+      "shopping_signal": "직접적 상품 판매 시그널은 약하고, 스킬 자체가 상품이 되는 자기참조형 구조",
+      "replicability": 80
+    },
+    "money_paths": {
+      "content_revenue": {"viable": true, "why": "정보 격차 자체가 콘텐츠 소재로 검증됨 (실제 Threads 초안 작성 완료)"},
+      "affiliate": {"viable": true, "why": "스킬 제작에 필요한 도구/강의의 제휴 링크 삽입 가능"},
+      "recurring_affiliate": {"viable": "UNKNOWN", "why": ""},
+      "skill": {"viable": true, "why": "스킬 자체를 SkillsMP 등 마켓에 등록해 판매/공유하는 것이 핵심 상품"},
+      "template": {"viable": true, "why": "SKILL.md 템플릿을 실무자용으로 패키징해 판매 가능"},
+      "digital_product": {"viable": "UNKNOWN", "why": ""},
+      "smartstore": {"viable": false, "why": "디지털 자산이라 스마트스토어 판매와는 맞지 않음"},
+      "guide_ebook": {"viable": true, "why": "스킬 제작-등록-수익화 전 과정을 다룬 전자책/강의 소재로 적합"},
+      "consulting": {"viable": true, "why": "기업 대상 맞춤 스킬 제작대행 수요 존재"},
+      "agent_setup_service": {"viable": "UNKNOWN", "why": ""},
+      "lead_generation": {"viable": "UNKNOWN", "why": ""},
+      "micro_saas": {"viable": false, "why": "아직 스킬 하나로 반복 수요가 검증되지 않아 SaaS로 가기엔 이르다"},
+      "data_business": {"viable": false, "why": "데이터 비즈니스와 무관"}
+    }
+  }
+]

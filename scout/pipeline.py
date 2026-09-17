@@ -16,6 +16,8 @@ from dataclasses import replace
 from scout.models import Candidate, ValidationError, validate_raw_candidate
 from scout.scoring import score_and_tier, is_product_opportunity
 from scout import dedup
+from scout.analyst import build_viral_dna
+from scout.money import build_money_analysis
 
 
 def _slugify(text: str) -> str:
@@ -111,3 +113,36 @@ def ingest_batch(db: dict, raw_items: list[dict], today: str) -> dict:
             created.append(candidate)
 
     return {"created": created, "updated": updated, "errors": errors}
+
+
+def analyze_batch(db: dict, analysis_items: list[dict], today: str) -> dict:
+    """PHASE 2: apply ANALYST (VIRAL DNA) + MONEY AGENT to candidates that
+    already exist in the database (from a prior ingest). Never creates new
+    candidates -- ANALYST/MONEY only deepen what SCOUT already found.
+    """
+    from scout.storage import get, upsert
+
+    analyzed, errors = [], []
+    for item in analysis_items:
+        candidate_id = item.get("candidate_id")
+        candidate = get(db, candidate_id) if candidate_id else None
+        if candidate is None:
+            errors.append({"candidate_id": candidate_id, "error": "candidate not found in database"})
+            continue
+
+        try:
+            viral_dna = build_viral_dna(item["viral_dna"]) if "viral_dna" in item else candidate.viral_dna
+            money_analysis = (
+                build_money_analysis(item["money_paths"]) if "money_paths" in item else candidate.money_analysis
+            )
+        except (ValidationError, KeyError) as e:
+            errors.append({"candidate_id": candidate_id, "error": str(e)})
+            continue
+
+        updated_candidate = replace(
+            candidate, viral_dna=viral_dna, money_analysis=money_analysis, last_checked=today,
+        )
+        upsert(db, updated_candidate)
+        analyzed.append(updated_candidate)
+
+    return {"analyzed": analyzed, "errors": errors}

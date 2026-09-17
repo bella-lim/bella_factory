@@ -51,6 +51,27 @@ class ValidationError(ValueError):
     pass
 
 
+# ANALYST AGENT (section 16): the fixed set of angles every VIRAL DNA record
+# must cover before it counts as an analysis rather than a note.
+VIRAL_DNA_FIELDS = {
+    "topic", "hook_principle", "emotion", "problem", "desire",
+    "format", "structure", "comment_trigger", "shopping_signal",
+    "replicability",
+}
+
+# MONEY AGENT (section 12): the fixed menu of revenue paths to evaluate.
+# Never invent a path outside this list, and never fabricate viability --
+# each "viable" path must carry a reason.
+REVENUE_PATH_KEYS = {
+    "affiliate", "recurring_affiliate", "content_revenue", "skill",
+    "template", "digital_product", "smartstore", "guide_ebook",
+    "consulting", "agent_setup_service", "lead_generation",
+    "micro_saas", "data_business",
+}
+
+MONETIZABLE_MIN_VIABLE_PATHS = 3  # section 12: "최소 3개의 현실적인 수익화 경로"
+
+
 @dataclass
 class Candidate:
     id: str
@@ -98,6 +119,11 @@ class Candidate:
     content_status: str = "NONE"
     performance: str = "UNKNOWN"
     revenue: str = "UNKNOWN"
+
+    # PHASE 2: ANALYST (VIRAL DNA, section 16) and MONEY AGENT (revenue
+    # paths + product ladder, sections 12/15). Empty until analyze is run.
+    viral_dna: dict = field(default_factory=dict)
+    money_analysis: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
