@@ -7,14 +7,22 @@
     python3 -m scout.cli record-decision  <candidate_id> <preview|revise|approve|discard> [--by NAME] [--notes TEXT]
     python3 -m scout.cli set-webhook      <public_https_url>
     python3 -m scout.cli serve-webhook    [--port 8443]
+    python3 -m scout.cli publish          <candidate_id> --platform threads --version info
+    python3 -m scout.cli publish          <candidate_id> --platform naver_blog
+    python3 -m scout.cli publish          <candidate_id> --platform youtube_shorts --video-file <path>
     python3 -m scout.cli report           [--date YYYY-MM-DD] [--out path]
     python3 -m scout.cli list             [--track TRACK]
 
 request-approval / set-webhook / serve-webhook need TELEGRAM_BOT_TOKEN (and
 TELEGRAM_CHAT_ID / TELEGRAM_WEBHOOK_SECRET respectively) set in the
-environment -- see .env.example. They reach api.telegram.org, which this
-sandbox's egress policy blocks; run them from an environment with network
-access to Telegram.
+environment -- see .env.example. publish --platform threads needs
+THREADS_ACCESS_TOKEN / THREADS_USER_ID; --platform youtube_shorts needs
+GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN and an
+already-rendered video file; --platform naver_blog always returns
+NOT_SUPPORTED (see scout/publish.py). All of these reach external hosts
+this sandbox's egress policy blocks; run them from an environment with
+real network access. publish always refuses unless the candidate's
+approval.status is APPROVED.
 """
 from __future__ import annotations
 
@@ -151,6 +159,46 @@ def cmd_serve_webhook(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_publish(args: argparse.Namespace) -> int:
+    from scout import publish
+    from scout.telegram_bot import require_env
+
+    db = storage.load_db(args.db)
+    candidate = storage.get(db, args.candidate_id)
+    if candidate is None:
+        print(f"! candidate {args.candidate_id!r} not found", file=sys.stderr)
+        return 1
+
+    try:
+        if args.platform == "threads":
+            if not args.version:
+                print("! --version is required for --platform threads (info|experience|shopping)", file=sys.stderr)
+                return 1
+            result = publish.publish_threads(
+                candidate, args.version,
+                require_env("THREADS_USER_ID"), require_env("THREADS_ACCESS_TOKEN"),
+            )
+        elif args.platform == "naver_blog":
+            result = publish.publish_naver_blog(candidate)
+        elif args.platform == "youtube_shorts":
+            result = publish.publish_youtube_shorts(
+                candidate, args.video_file,
+                require_env("GOOGLE_CLIENT_ID"), require_env("GOOGLE_CLIENT_SECRET"),
+                require_env("GOOGLE_REFRESH_TOKEN"),
+            )
+        else:
+            print(f"! unknown platform {args.platform!r}", file=sys.stderr)
+            return 1
+    except Exception as e:  # noqa: BLE001 -- surface any failure (guard, validation, network, HTTP) to the operator
+        print(f"! publish failed: {e}", file=sys.stderr)
+        return 1
+
+    updated = publish.apply_publish_result(db, args.candidate_id, args.platform, result)
+    storage.save_db(db, args.db)
+    print(f"Publish [{args.platform}]: {updated.name} -> {result['status']}" + (f" ({result['error']})" if result.get("error") else ""))
+    return 0 if result["status"] in ("PUBLISHED", "NOT_SUPPORTED") else 1
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     date_str = args.date or _today()
     db = storage.load_db(args.db)
@@ -218,6 +266,13 @@ def main(argv=None) -> int:
     p_serve_webhook = sub.add_parser("serve-webhook")
     p_serve_webhook.add_argument("--port", type=int, default=8443)
     p_serve_webhook.set_defaults(func=cmd_serve_webhook)
+
+    p_publish = sub.add_parser("publish")
+    p_publish.add_argument("candidate_id")
+    p_publish.add_argument("--platform", required=True, choices=["threads", "naver_blog", "youtube_shorts"])
+    p_publish.add_argument("--version", choices=["info", "experience", "shopping"])
+    p_publish.add_argument("--video-file")
+    p_publish.set_defaults(func=cmd_publish)
 
     p_report = sub.add_parser("report")
     p_report.add_argument("--date")

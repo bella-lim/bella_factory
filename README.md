@@ -1,12 +1,33 @@
-# AI SNS MONEY FACTORY — PHASE 1 + PHASE 2 + PHASE 3 + PHASE 4
+# AI SNS MONEY FACTORY — PHASE 1 + PHASE 2 + PHASE 3 + PHASE 4 + PHASE 5 (PUBLISH only)
 
 Scope: **SCOUT + AGENT ECONOMY RADAR** (PHASE 1), **ANALYST + MONEY AGENT**
-(PHASE 2), **CREATOR + FINAL EDITOR** (PHASE 3), and **Telegram Approval**
-(PHASE 4), per spec v1.1. Not implemented yet (by design): PUBLISH, GROWTH.
-Nothing in this repo can publish content anywhere — `approve` records that
-a human tapped "게시 승인" on a real Telegram message, but no code path here
-actually posts to Threads/Naver/YouTube (spec section 21's approval and an
-actual publish action are two different things; only the first exists yet).
+(PHASE 2), **CREATOR + FINAL EDITOR** (PHASE 3), **Telegram Approval**
+(PHASE 4), and **PUBLISH** (part of PHASE 5), per spec v1.1. Not
+implemented yet: GROWTH / FEEDBACK (the other half of PHASE 5). `scout.cli
+publish` is the first thing in this repo that can post something
+externally, and it refuses to run for any candidate whose
+`approval.status != "APPROVED"` — a real human decision recorded in
+PHASE 4, never something this pipeline decides for itself.
+
+## PUBLISH platform capability is honest, not assumed
+
+- **Threads**: real (Meta's Graph API, `graph.threads.net`, documented
+  2-step container→publish flow). Needs Tech Provider Verification and a
+  `threads_content_publish`-scoped token from Meta.
+- **YouTube Shorts**: real (YouTube Data API v3, resumable upload). But
+  CREATOR (§18) only ever produces a `video_prompt` / script for Shorts,
+  never a rendered video file — this pipeline has no video-generation
+  step. `publish --platform youtube_shorts` requires `--video-file` to
+  already exist; if you haven't rendered one, it fails immediately with
+  that reason rather than doing anything.
+- **Naver Blog**: **not supported**, always. There is no current,
+  reliably-documented public API for a third party to create a post on an
+  arbitrary personal Naver Blog — the only mechanism found in research was
+  a MetaWeblog/XML-RPC integration from a 2010 blog post, with no
+  confirmed 2026 support. `publish --platform naver_blog` always returns
+  `NOT_SUPPORTED` with that explanation rather than pretending to work.
+  Publish the `naver_blog` draft in `data/content/*.json` manually through
+  Naver's own blog editor.
 
 ## PHASE 4 needs real Telegram credentials, and this sandbox can't use them
 
@@ -105,16 +126,23 @@ scout/
                 updates, rejects any request without a matching
                 X-Telegram-Bot-Api-Secret-Token header, and otherwise just
                 calls apply_decision() + acks back to Telegram.
+  publish.py    PUBLISH (§22+). guard_approved() is the single gate every
+                publisher goes through first -- refuses unless
+                approval.status == "APPROVED". publish_threads (real
+                Graph API), publish_youtube_shorts (real Data API v3,
+                needs a video file this pipeline never renders),
+                publish_naver_blog (always NOT_SUPPORTED, see above, with
+                the reason recorded rather than a fake success)
   report.py     Renders TOP 3 REPORT (§17), AGENT MONEY SIGNAL (§26), and
                 -- once run -- VIRAL DNA, MONEY AGENT REVENUE PATHS,
-                CREATOR OUTPUT, FINAL EDITOR CHECK, and TELEGRAM APPROVAL
-                sections
+                CREATOR OUTPUT, FINAL EDITOR CHECK, TELEGRAM APPROVAL, and
+                PUBLISH STATUS sections
   cli.py        `python3 -m scout.cli {ingest,analyze,create,
                 request-approval,record-decision,set-webhook,
-                serve-webhook,report,list}`
-tests/          79 unit tests covering scoring, dedup, validation, storage,
-                ANALYST/MONEY/CREATOR/EDITOR/Telegram-approval validation,
-                and report rendering -- all network-free
+                serve-webhook,publish,report,list}`
+tests/          91 unit tests covering scoring, dedup, validation, storage,
+                ANALYST/MONEY/CREATOR/EDITOR/Telegram-approval/publish
+                validation, and report rendering -- all network-free
 data/
   candidates.json         the persistent database (created on first ingest)
   research/YYYY-MM-DD.json  raw research batches (input to `ingest`)
@@ -124,7 +152,8 @@ data/
                             to `create`)
 reports/
   YYYY-MM-DD.md   generated daily reports
-.env.example      required Telegram env var names (no real values)
+.env.example      required Telegram + publish-platform env var names (no
+                  real values)
 ```
 
 ## Running it
@@ -170,10 +199,17 @@ python3 -m scout.cli serve-webhook --port 8443
 #    sent for review.
 python3 -m scout.cli record-decision agent-economy-agent-skills approve --by bella
 
-# 6. Generate the daily report from everything seen on that date -- includes
+# 6. (optional, PHASE 5 PUBLISH) Once approval.status is APPROVED, publish.
+#    Needs real per-platform credentials -- see .env.example -- and network
+#    access this sandbox lacks. Refuses to run at all if not APPROVED.
+python3 -m scout.cli publish agent-economy-agent-skills --platform threads --version info
+python3 -m scout.cli publish agent-economy-agent-skills --platform naver_blog        # always NOT_SUPPORTED
+python3 -m scout.cli publish agent-economy-agent-skills --platform youtube_shorts --video-file ./short.mp4
+
+# 7. Generate the daily report from everything seen on that date -- includes
 #    VIRAL DNA / MONEY AGENT REVENUE PATHS / CREATOR OUTPUT / FINAL EDITOR
-#    CHECK / TELEGRAM APPROVAL sections for anything analyzed / drafted /
-#    requested.
+#    CHECK / TELEGRAM APPROVAL / PUBLISH STATUS sections for anything
+#    analyzed / drafted / requested / published.
 python3 -m scout.cli report --date 2026-09-13
 
 # Inspect the whole database at any time:
@@ -228,8 +264,15 @@ python3 -m unittest discover -s tests
   requested` refuses to even start the flow unless `content_status ==
   "PREVIEW_READY"` — you can't request approval on content FINAL EDITOR
   hasn't passed.
+- `publish.guard_approved` is called first by every publisher, before any
+  network code runs — `python3 -m scout.cli publish agent-economy-agent-
+  skills --platform naver_blog` on an unapproved candidate fails
+  immediately with "not APPROVED", verified by actually running it (see
+  "Known limitations" below).
+- `publish_naver_blog` never returns `PUBLISHED` — there is no code path
+  that fakes a post id or URL for a platform with no real write API.
 
-## Known limitations of PHASE 1-4 so far
+## Known limitations of PHASE 1-5 (PUBLISH) so far
 
 - Only 3 candidates were researched end-to-end (2 Agent Economy, 1 Shopping)
   as a demonstration of the full discover -> verify -> score -> store ->
@@ -264,6 +307,20 @@ python3 -m unittest discover -s tests
   and isn't practical to unit-test without a real socket) — verify it
   manually (e.g. `curl` a fake Telegram update at it locally) before
   pointing a real bot's webhook at it.
-- PHASE 4 stops at recording a decision. Nothing here actually posts to
-  Threads, Naver, or YouTube even after `APPROVED` — that's PHASE 5
-  (PUBLISH), still unimplemented.
+- PHASE 4 stops at recording a decision; PHASE 5 (PUBLISH) is what
+  actually posts, described above.
+- Same network constraint as PHASE 4: `publish_threads` and
+  `publish_youtube_shorts` reach external hosts this sandbox's egress
+  policy blocks, so neither has been exercised end-to-end against the
+  real APIs. Only the approval gate, payload/metadata builders, and the
+  `naver_blog` NOT_SUPPORTED path were actually run (91 passing unit
+  tests, all network-free) — smoke-test the two real integrations from an
+  environment with network access and real credentials before relying on
+  them.
+- GROWTH / FEEDBACK (the rest of PHASE 5, spec sections 22-25) — tracking
+  post performance after publish and feeding it back into SCOUT/MONEY/
+  CREATOR — is not implemented.
+- No candidate has actually been through the full loop (approve → publish)
+  in this session, on top of not being network-testable here: Mireye and
+  the Agent Skills candidate are `PREVIEW_READY`/analyzed but neither has
+  been approved or published.
