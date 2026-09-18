@@ -1,0 +1,94 @@
+[
+  {
+    "track": "AGENT_ECONOMY",
+    "name": "Inkbox",
+    "category": "IDENTITY",
+    "url": "https://www.ycombinator.com/companies/inkbox",
+    "sources": [
+      "https://www.ycombinator.com/launches/RIu-inkbox-give-your-ai-agents-email-phone-imessage-and-an-internet-address",
+      "https://github.com/inkbox-ai/inkbox",
+      "https://x.com/rayruizhiliao/status/2074893783133733039",
+      "https://byteiota.com/yc-s26-demo-day-agent-infrastructure-is-now-a-category/"
+    ],
+    "stage": "NEW",
+    "what_changed": "YC S26 배치(2026년 사상 최대 규모, 235개 스타트업) 소속으로 정식 런칭. AI 에이전트에게 이메일·전화번호·iMessage·상시 인터넷 주소·암호화된 2FA/자격증명 볼트를 API 하나로 제공. Hermes, OpenClaw, Claude Code, Codex용 공식 통합 플러그인 존재.",
+    "why_now": "창업자들이 직접 웹 자동화 에이전트를 만들다가 '포털 로그인마다 확인 이메일/2FA 코드가 필요한데 Gmail·Twilio·ngrok을 따로 이어붙여야 했다'는 실제 문제에서 출발 -- 검증된 페인포인트.",
+    "agent_use": "에이전트가 서비스 가입, 이메일 확인, 2FA 코드 수신, webhook 수신용 고정 인터넷 주소 확보 등을 사람 개입 없이 스스로 처리.",
+    "hook": "AI 에이전트한테 이메일 주소랑 전화번호를 그냥 줘버리는 회사가 나왔다",
+    "recommended_platform": "Threads(개발자 대상) + 블로그(에이전트 자동화 실무 가이드)",
+    "next_action": "무료/평가판으로 실제 이메일·2FA 발급 흐름 직접 테스트 -> 한국어 소개 콘텐츠 선제작 -> 자격증명 볼트 보안 모델 검토 후 SKILL SAFETY GATE(섹션20) 통과 시 Hermes 연동 검토",
+    "korean_gap": true,
+    "korean_gap_evidence": "'Inkbox' 관련 한국어 블로그/뉴스/커뮤니티 콘텐츠 검색 결과 전무 확인 (검색일 2026-09-17, WebSearch)",
+    "money_gap": true,
+    "money_gap_evidence": "한국어 콘텐츠 자체가 없어 수익화 사례도 전무. 다만 자격증명(이메일/2FA)을 에이전트에 위임하는 구조라 보안 리스크 설명 콘텐츠도 함께 필요",
+    "hermes_compatible": "TEST",
+    "license": "UNKNOWN (proprietary SaaS API, SDK는 GitHub에 공개(inkbox-ai/inkbox), 서비스 자체 요금제 미확인)",
+    "security_notes": "에이전트에게 실제 이메일/전화/2FA 볼트 접근권을 위임하는 구조 -- 오남용 시 계정 탈취·피싱 등 블라스트 반경이 큼. SKILL SAFETY GATE(섹션20) 미통과 상태이며, 자격증명 위임 특성상 통상보다 더 엄격한 검증 필요.",
+    "problem_strength": "HIGH",
+    "business_models": [
+      "Content: '에이전트에게 이메일/전화번호를 주는 시대' 한국어 선제 콘텐츠",
+      "Guide/Ebook: 에이전트 자동 가입/인증 흐름 구축 실무 가이드",
+      "Agent Setup Service: 기업 대상 에이전트 인증/2FA 자동화 구축 대행"
+    ],
+    "combo_candidates": [
+      "Inkbox(정체성) + Hermes(실행) -> '완전자동 웹서비스 가입·인증 에이전트' 조합 상품"
+    ],
+    "subscores": {
+      "problem_solving": 14,
+      "agent_utility": 9,
+      "hermes_compatibility": 8,
+      "early_market_signal": 8,
+      "korean_gap": 10,
+      "affiliate_potential": 3,
+      "service_potential": 12,
+      "skill_template_potential": 8,
+      "content_potential": 9
+    }
+  },
+  {
+    "track": "AGENT_ECONOMY",
+    "name": "Understudy Labs",
+    "category": "RUNTIME",
+    "url": "https://www.ycombinator.com/companies/understudy-labs",
+    "sources": [
+      "https://www.ycombinator.com/launches/SPb-understudy-the-self-optimizing-inference-cloud",
+      "https://understudylabs.com/",
+      "https://github.com/api-evangelist/understudy-labs",
+      "https://byteiota.com/yc-s26-demo-day-agent-infrastructure-is-now-a-category/"
+    ],
+    "stage": "NEW",
+    "what_changed": "YC S26 런칭. 프로덕션 트래픽을 캡처해 더 작은 오픈 웨이트 모델을 자동 파인튜닝하고, 자동 평가 게이트를 통과하면 반복 업무 트래픽을 그 저렴한 모델로 자동 라우팅 -- Anthropic/OpenAI API 드롭인 대체 방식으로 요금을 최대 80%까지 절감한다고 자체 발표(제3자 검증 안 됨).",
+    "why_now": "AI 에이전트를 실제 프로덕션에 돌리는 팀이 늘면서 프론티어 모델 API 비용 자체가 병목이 되는 시점에 나온 자동 최적화 솔루션.",
+    "agent_use": "에이전트 자체를 위한 인프라(메타 레벨) -- 에이전트가 처리하는 반복 업무의 추론 비용을 자동으로 낮춰줌.",
+    "hook": "클로드 요금 80% 줄여주는 회사가 나왔다는데, 아직 아무도 모른다",
+    "recommended_platform": "블로그(비용 최적화 실무) + Threads",
+    "next_action": "실제 API 드롭인 교체 난이도와 품질 저하 여부를 직접 테스트한 뒤 콘텐츠화 -> 기업 대상 'AI 운영비 절감 컨설팅' 서비스 각도로 확장 검토",
+    "korean_gap": true,
+    "korean_gap_evidence": "'Understudy Labs' 자체를 다룬 한국어 콘텐츠는 검색 결과 전무. 다만 인접 개념(LLM 라우팅/파인튜닝을 통한 비용 절감)은 RouteNLP 논문 번역, 스캐터랩·VESSL AI 사례 등으로 한국에 일부 소개되어 있어 '제품명 갭'이지 '개념 갭'은 아님 (검색일 2026-09-17)",
+    "money_gap": true,
+    "money_gap_evidence": "이 제품 자체의 도입기·수익화 콘텐츠는 한국어로 확인되지 않음",
+    "hermes_compatible": "TEST",
+    "license": "UNKNOWN (proprietary SaaS, 오픈소스 툴킷 일부 공개 여부 미확인)",
+    "security_notes": "프로덕션 트래픽(에이전트가 주고받는 실제 요청/응답)을 제3자 서비스로 보내 파인튜닝에 사용하는 구조 -- 민감정보 포함 여부 및 데이터 처리방침 확인 전 도입 비권장.",
+    "problem_strength": "HIGH",
+    "business_models": [
+      "Content: 'AI 에이전트 운영비 80% 줄이는 법' 콘텐츠",
+      "Consulting: 기업 대상 LLM 운영비 최적화 컨설팅",
+      "Guide/Ebook: 프론티어 모델 -> 오픈웨이트 모델 전환 가이드"
+    ],
+    "combo_candidates": [
+      "Understudy Labs + Hermes 운영 리포트 -> 'AI 에이전트 운영비 절감 진단' 서비스"
+    ],
+    "subscores": {
+      "problem_solving": 13,
+      "agent_utility": 8,
+      "hermes_compatibility": 6,
+      "early_market_signal": 7,
+      "korean_gap": 7,
+      "affiliate_potential": 2,
+      "service_potential": 11,
+      "skill_template_potential": 6,
+      "content_potential": 8
+    }
+  }
+]
